@@ -1,5 +1,5 @@
 [package]
-name = "egui_app"
+name = "meccha_chameleon_mod_installer"
 version = "0.1.0"
 edition = "2024"
 
@@ -10,3 +10,6 @@ serde_json = "1.0.150"
 sevenz-rust = "0.6.1"
 tempfile = "3.27.0"
 ureq = { version = "2", features = ["json"] }
+
+[build-dependencies]
+winres = "0.1.12"
