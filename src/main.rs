@@ -1,6 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use eframe::egui;
+use std::io::{Read, Write};
 use std::sync::{Arc, Mutex};
 
 fn main() -> eframe::Result<()> {
@@ -23,8 +24,10 @@ fn format_bytes(bytes: u64) -> String {
 struct MyApp {
   selected_folder: Option<std::path::PathBuf>,
   selected_file_index: usize,
-  files: Arc<Mutex<Vec<(String, u64)>>>,
+  files: Arc<Mutex<Vec<(String, u64, String)>>>,
   version: Arc<Mutex<String>>,
+  is_downloading: Arc<Mutex<bool>>,
+  download_progress: Arc<Mutex<f32>>,
 }
 
 impl Default for MyApp {
@@ -34,6 +37,8 @@ impl Default for MyApp {
       selected_file_index: 0,
       files: Arc::new(Mutex::new(Vec::new())),
       version: Arc::new(Mutex::new("Loading...".to_string())),
+      is_downloading: Arc::new(Mutex::new(false)),
+      download_progress: Arc::new(Mutex::new(0.0)),
     }
   }
 }
@@ -56,13 +61,11 @@ impl MyApp {
 
   fn fetch_github_release(
     version_lock: Arc<Mutex<String>>,
-    files_lock: Arc<Mutex<Vec<(String, u64)>>>,
+    files_lock: Arc<Mutex<Vec<(String, u64, String)>>>,
     ctx: egui::Context,
   ) -> Result<(), Box<dyn std::error::Error>> {
-    let req = ureq::get(
-      "https://api.github.com/repos/stabldev/meccha-chameleon-mod-installer/releases/latest",
-    )
-    .set("User-Agent", "meccha-chameleon-installer");
+    let req = ureq::get("https://api.github.com/repos/stabldev/torrra/releases/latest")
+      .set("User-Agent", "meccha-chameleon-installer");
 
     let response = req.call()?;
     let json: serde_json::Value = response.into_json()?;
@@ -72,12 +75,13 @@ impl MyApp {
     }
 
     if let Some(assets) = json["assets"].as_array() {
-      let mut new_files: Vec<(String, u64)> = assets
+      let mut new_files: Vec<(String, u64, String)> = assets
         .iter()
         .filter_map(|asset| {
           let name = asset["name"].as_str()?.to_string();
           let size = asset["size"].as_u64()?;
-          Some((name, size))
+          let url = asset["browser_download_url"].as_str()?.to_string();
+          Some((name, size, url))
         })
         .collect();
       new_files.sort_by_key(|file| file.1);
@@ -86,6 +90,50 @@ impl MyApp {
 
     ctx.request_repaint();
     Ok(())
+  }
+
+  fn spawn_download_thread(
+    ctx: egui::Context,
+    download_url: String,
+    target_path: std::path::PathBuf,
+    is_downloading: Arc<Mutex<bool>>,
+    download_progress: Arc<Mutex<f32>>,
+  ) {
+    *is_downloading.lock().unwrap() = true;
+    *download_progress.lock().unwrap() = 0.0;
+
+    std::thread::spawn(move || {
+      let _ = (|| -> Result<(), Box<dyn std::error::Error>> {
+        let req = ureq::get(&download_url).set("User-Agent", "meccha-chameleon-installer");
+        let response = req.call()?;
+        let total_size = response
+          .header("Content-Length")
+          .and_then(|s| s.parse::<u64>().ok())
+          .unwrap_or(1);
+
+        let mut reader = response.into_reader();
+        let mut file = std::fs::File::create(&target_path)?;
+        let mut buffer = [0; 65536]; // 64KB chunks
+        let mut downloaded: u64 = 0;
+
+        loop {
+          let n = reader.read(&mut buffer)?;
+          if n == 0 {
+            break;
+          }
+          file.write_all(&buffer[..n])?;
+          downloaded += n as u64;
+
+          *download_progress.lock().unwrap() =
+            (downloaded as f32 / total_size as f32).clamp(0.0, 1.0);
+          ctx.request_repaint();
+        }
+        Ok(())
+      })();
+
+      *is_downloading.lock().unwrap() = false;
+      ctx.request_repaint();
+    });
   }
 }
 
@@ -113,6 +161,8 @@ impl eframe::App for MyApp {
 
       let files = self.files.lock().unwrap().clone();
       let version = self.version.lock().unwrap().clone();
+      let is_downloading = *self.is_downloading.lock().unwrap();
+      let progress = *self.download_progress.lock().unwrap();
 
       ui.horizontal(|ui| {
         ui.label("Modpack File:");
@@ -123,13 +173,15 @@ impl eframe::App for MyApp {
             self.selected_file_index = 0;
           }
 
-          egui::ComboBox::from_id_salt("modpack_dropdown")
-            .selected_text(&files[self.selected_file_index].0)
-            .show_ui(ui, |ui| {
-              for (i, (name, _size)) in files.iter().enumerate() {
-                ui.selectable_value(&mut self.selected_file_index, i, name);
-              }
-            });
+          ui.add_enabled_ui(!is_downloading, |ui| {
+            egui::ComboBox::from_id_salt("modpack_dropdown")
+              .selected_text(&files[self.selected_file_index].0)
+              .show_ui(ui, |ui| {
+                for (i, (name, _size, _url)) in files.iter().enumerate() {
+                  ui.selectable_value(&mut self.selected_file_index, i, name);
+                }
+              });
+          });
         }
       });
 
@@ -152,10 +204,38 @@ impl eframe::App for MyApp {
       ui.add_space(10.0);
 
       ui.vertical_centered(|ui| {
-        let can_install = self.selected_folder.is_some() && !files.is_empty();
-        ui.add_enabled_ui(can_install, |ui| {
-          let _ = ui.add_sized([80.0, 30.0], egui::Button::new("Install"));
-        });
+        if is_downloading {
+          ui.add_sized(
+            [ui.available_width(), 30.0],
+            egui::ProgressBar::new(progress)
+              .text(format!("{:.1}%", progress * 100.0))
+              .corner_radius(2.0),
+          );
+        } else {
+          let can_install = self.selected_folder.is_some() && !files.is_empty();
+          ui.add_enabled_ui(can_install, |ui| {
+            if ui
+              .add_sized([80.0, 30.0], egui::Button::new("Install"))
+              .clicked()
+            {
+              if let Some(folder) = &self.selected_folder {
+                if let Some(file) = files.get(self.selected_file_index) {
+                  let file_name = &file.0;
+                  let download_url = file.2.clone();
+                  let target_path = folder.join(file_name);
+
+                  Self::spawn_download_thread(
+                    ui.ctx().clone(),
+                    download_url,
+                    target_path,
+                    self.is_downloading.clone(),
+                    self.download_progress.clone(),
+                  );
+                }
+              }
+            }
+          });
+        }
       });
 
       ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
