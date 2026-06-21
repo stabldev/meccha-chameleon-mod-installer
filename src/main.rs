@@ -140,7 +140,13 @@ impl MyApp {
         ctx.request_repaint();
 
         let temp_path = temp_file.into_temp_path();
-        sevenz_rust::decompress_file(&temp_path, &target_folder)?;
+        let workshop_folder = target_folder
+          .join("Chameleon")
+          .join("Binaries")
+          .join("Win64")
+          .join("workshop");
+        std::fs::create_dir_all(&workshop_folder)?;
+        sevenz_rust::decompress_file(&temp_path, &workshop_folder)?;
 
         Ok(())
       })();
