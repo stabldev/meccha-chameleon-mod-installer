@@ -1,10 +1,14 @@
-# Meccha Chameleon Mod Installer
+# Meccha ChamelVeon Mod Installer
 
 A lightweight, portable Rust application built with `eframe` and `egui` for seamlessly downloading and installing game modpacks.
+It automatically fetches the latest `.7z` releases from GitHub and extracts them directly into your game directory using a non-blocking background thread.
 
-## Download
+<img width="322" height="262" alt="image" src="https://github.com/user-attachments/assets/1508ef6b-e2c2-4434-9ed2-d6ad1e7660dd" />
 
-[Download the latest release here](https://github.com/stabldev/meccha-chameleon-mod-installer/releases/latest/download/meccha_chameleon_mod_installer.exe)
+## Download & Run
+
+[<img src="https://img.shields.io/badge/Download_Latest_Release-0078D4?style=for-the-badge&logo=windows&logoColor=white" alt="Download" />
+](https://github.com/stabldev/meccha-chameleon-mod-installer/releases/latest/download/meccha_chameleon_mod_installer.exe)
 
 > **Note:** Windows SmartScreen may flag this executable as an untrusted app because it does not have a paid code-signing certificate (unknown publisher). It is completely safe to run. You can bypass the warning by clicking "More info" and then "Run anyway".
 
