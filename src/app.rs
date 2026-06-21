@@ -30,6 +30,7 @@ impl Default for MyApp {
 
 impl MyApp {
   pub fn new(cc: &eframe::CreationContext<'_>) -> Self {
+    cc.egui_ctx.set_visuals(egui::Visuals::dark());
     let app = Self::default();
     spawn_github_fetch_thread(app.files.clone(), app.version.clone(), cc.egui_ctx.clone());
     app
