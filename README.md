@@ -1,4 +1,4 @@
-# Meccha ChamelVeon Mod Installer
+# Meccha Chameleon Mod Installer
 
 A lightweight, portable Rust application built with `eframe` and `egui` for seamlessly downloading and installing game modpacks.
 It automatically fetches the latest `.7z` releases from GitHub and extracts them directly into your game.
