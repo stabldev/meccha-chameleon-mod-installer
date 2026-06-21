@@ -1,7 +1,7 @@
 # Meccha ChamelVeon Mod Installer
 
 A lightweight, portable Rust application built with `eframe` and `egui` for seamlessly downloading and installing game modpacks.
-It automatically fetches the latest `.7z` releases from GitHub and extracts them directly into your game directory using a non-blocking background thread.
+It automatically fetches the latest `.7z` releases from GitHub and extracts them directly into your game.
 
 <img width="322" height="262" alt="image" src="https://github.com/user-attachments/assets/1508ef6b-e2c2-4434-9ed2-d6ad1e7660dd" />
 
@@ -19,6 +19,13 @@ It automatically fetches the latest `.7z` releases from GitHub and extracts them
 3. Click **Browse...** to select your base Game Folder.
 4. Select the desired modpack from the dropdown list.
 5. Click **Install** to download and automatically extract the modpack directly into the `workshop` directory.
+
+## Modpack Versions
+
+There are different modpack options available to choose from:
+* **Minimal Maps** (`minimal-maps.7z`): Contains only lighter maps (each being <100MB in size).
+* **Heavy Maps** (`heavy-maps.7z.001` & `heavy-maps.7z.002`): Contains the heavier maps (>100MB).
+  > Due to file size limits, this release is split into two parts.
 
 ## Build Instructions
 
