@@ -100,6 +100,7 @@ impl eframe::App for MyApp {
           ui.label("Not selected");
         }
       });
+
       ui.add_space(5.0);
 
       if ui.button("Browse...").clicked() {
@@ -136,6 +137,7 @@ impl eframe::App for MyApp {
         ui.label("Modpack Version:");
         ui.label(version);
       });
+
       ui.horizontal(|ui| {
         ui.label("Modpack Size:");
         if files.is_empty() {
@@ -150,7 +152,10 @@ impl eframe::App for MyApp {
       ui.add_space(10.0);
 
       ui.vertical_centered(|ui| {
-        let _ = ui.add_sized([80.0, 30.0], egui::Button::new("Install"));
+        let can_install = self.selected_folder.is_some() && !files.is_empty();
+        ui.add_enabled_ui(can_install, |ui| {
+          let _ = ui.add_sized([80.0, 30.0], egui::Button::new("Install"));
+        });
       });
 
       ui.with_layout(egui::Layout::bottom_up(egui::Align::Center), |ui| {
