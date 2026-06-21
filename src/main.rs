@@ -28,6 +28,7 @@ struct MyApp {
   version: Arc<Mutex<String>>,
   is_downloading: Arc<Mutex<bool>>,
   download_progress: Arc<Mutex<f32>>,
+  progress_status: Arc<Mutex<String>>,
 }
 
 impl Default for MyApp {
@@ -39,6 +40,7 @@ impl Default for MyApp {
       version: Arc::new(Mutex::new("Loading...".to_string())),
       is_downloading: Arc::new(Mutex::new(false)),
       download_progress: Arc::new(Mutex::new(0.0)),
+      progress_status: Arc::new(Mutex::new(String::new())),
     }
   }
 }
@@ -64,8 +66,10 @@ impl MyApp {
     files_lock: Arc<Mutex<Vec<(String, u64, String)>>>,
     ctx: egui::Context,
   ) -> Result<(), Box<dyn std::error::Error>> {
-    let req = ureq::get("https://api.github.com/repos/stabldev/torrra/releases/latest")
-      .set("User-Agent", "meccha-chameleon-installer");
+    let req = ureq::get(
+      "https://api.github.com/repos/stabldev/meccha-chameleon-mod-installer/releases/latest",
+    )
+    .set("User-Agent", "meccha-chameleon-installer");
 
     let response = req.call()?;
     let json: serde_json::Value = response.into_json()?;
@@ -92,15 +96,17 @@ impl MyApp {
     Ok(())
   }
 
-  fn spawn_download_thread(
+  fn spawn_install_thread(
     ctx: egui::Context,
     download_url: String,
-    target_path: std::path::PathBuf,
+    target_folder: std::path::PathBuf,
     is_downloading: Arc<Mutex<bool>>,
     download_progress: Arc<Mutex<f32>>,
+    progress_status: Arc<Mutex<String>>,
   ) {
     *is_downloading.lock().unwrap() = true;
     *download_progress.lock().unwrap() = 0.0;
+    *progress_status.lock().unwrap() = "Downloading...".to_string();
 
     std::thread::spawn(move || {
       let _ = (|| -> Result<(), Box<dyn std::error::Error>> {
@@ -112,7 +118,7 @@ impl MyApp {
           .unwrap_or(1);
 
         let mut reader = response.into_reader();
-        let mut file = std::fs::File::create(&target_path)?;
+        let mut temp_file = tempfile::Builder::new().suffix(".7z").tempfile()?;
         let mut buffer = [0; 65536]; // 64KB chunks
         let mut downloaded: u64 = 0;
 
@@ -121,13 +127,21 @@ impl MyApp {
           if n == 0 {
             break;
           }
-          file.write_all(&buffer[..n])?;
+
+          temp_file.write_all(&buffer[..n])?;
           downloaded += n as u64;
 
           *download_progress.lock().unwrap() =
             (downloaded as f32 / total_size as f32).clamp(0.0, 1.0);
           ctx.request_repaint();
         }
+
+        *progress_status.lock().unwrap() = "Extracting...".to_string();
+        ctx.request_repaint();
+
+        let temp_path = temp_file.into_temp_path();
+        sevenz_rust::decompress_file(&temp_path, &target_folder)?;
+
         Ok(())
       })();
 
@@ -163,6 +177,7 @@ impl eframe::App for MyApp {
       let version = self.version.lock().unwrap().clone();
       let is_downloading = *self.is_downloading.lock().unwrap();
       let progress = *self.download_progress.lock().unwrap();
+      let progress_status = self.progress_status.lock().unwrap().clone();
 
       ui.horizontal(|ui| {
         ui.label("Modpack File:");
@@ -205,10 +220,15 @@ impl eframe::App for MyApp {
 
       ui.vertical_centered(|ui| {
         if is_downloading {
+          let text = if progress_status == "Extracting..." {
+            "Extracting...".to_string()
+          } else {
+            format!("{} {:.1}%", progress_status, progress * 100.0)
+          };
           ui.add_sized(
             [ui.available_width(), 30.0],
             egui::ProgressBar::new(progress)
-              .text(format!("{:.1}%", progress * 100.0))
+              .text(text)
               .corner_radius(2.0),
           );
         } else {
@@ -220,16 +240,16 @@ impl eframe::App for MyApp {
             {
               if let Some(folder) = &self.selected_folder {
                 if let Some(file) = files.get(self.selected_file_index) {
-                  let file_name = &file.0;
                   let download_url = file.2.clone();
-                  let target_path = folder.join(file_name);
+                  let target_folder = folder.clone();
 
-                  Self::spawn_download_thread(
+                  Self::spawn_install_thread(
                     ui.ctx().clone(),
                     download_url,
-                    target_path,
+                    target_folder,
                     self.is_downloading.clone(),
                     self.download_progress.clone(),
+                    self.progress_status.clone(),
                   );
                 }
               }
