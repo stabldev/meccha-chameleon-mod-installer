@@ -1,4 +1,6 @@
 title: Meccha Chameleon Mod Installer
 description: Install Meccha Chameleon mods easily
 
-theme: slate
+remote_theme: pages-themes/slate@v0.2.0
+plugins:
+  - jekyll-remote-theme
