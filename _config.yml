@@ -8,5 +8,6 @@ plugins:
   - jekyll-remote-theme
 
 show_downloads: true
-download_exe_url: https://github.com/stabldev/meccha-chameleon-mod-installer/releases/latest/download/meccha_chameleon_mod_installer.exe
-download_releases_url: https://github.com/stabldev/meccha-chameleon-mod-installer/releases
+github:
+  zip_url: https://github.com/stabldev/meccha-chameleon-mod-installer/releases/latest/download/meccha_chameleon_mod_installer.exe
+  tar_url: https://github.com/stabldev/meccha-chameleon-mod-installer/releases
