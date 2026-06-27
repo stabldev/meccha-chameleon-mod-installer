@@ -3,7 +3,7 @@
 A lightweight, portable Rust application built with `eframe` and `egui` for seamlessly downloading and installing game modpacks.
 It automatically fetches the latest `.7z` releases from GitHub and extracts them directly into your game.
 
-<img width="322" height="262" alt="image" src="https://github.com/user-attachments/assets/1508ef6b-e2c2-4434-9ed2-d6ad1e7660dd" />
+<img width="322" height="262" alt="image" src="./docs/preview.png" />
 
 ## Download & Run
 
